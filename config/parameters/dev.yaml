@@ -1,0 +1,5 @@
+# pls sort alphabetically! use `.` dot only for the variable name, no `-` or `_` or camelCase, etc.
+parameters:
+  gin.mode: 'debug'
+  rabbitmq.client: 'rabbitmq.client'
+  rabbitmq.username: 'rabbitmq.username'

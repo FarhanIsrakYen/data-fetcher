@@ -1,0 +1,234 @@
+version: '3.7'
+
+networks:
+  tradeapi-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+    external: false
+  timescaledb-data:
+    external: false
+
+services:
+  api.app:
+    container_name: api.app
+    hostname: api.app
+    networks:
+      tradeapi-network:
+        aliases:
+          - api.app
+    build:
+      context: docker
+      dockerfile: dockerfile
+    tty: true
+    restart: unless-stopped
+    environment:
+      XDEBUG_CONFIG: remote_autostart=1 remote_enable=1 remote_port=9001 remote_host=host.docker.internal
+    working_dir: /var/www/html/
+    volumes:
+      - .:/var/www
+      - ./docker/php:/usr/local/etc
+    expose:
+      - 9000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    labels:
+      - traefik.enable=true
+      # tradecopy data api
+      - traefik.http.routers.tc-data-api.entrypoints=web
+      - traefik.http.routers.tc-data-api.rule=Host("tc-data-api-local.tradeapi.io")
+      - traefik.http.routers.tc-data-api.service=tc-data-api
+      - traefik.http.services.tc-data-api.loadbalancer.server.port=2000
+      # core market api
+      - traefik.http.routers.core-market-api.entrypoints=web
+      - traefik.http.routers.core-market-api.rule=Host("core-market-api-local.tradeapi.io")
+      - traefik.http.routers.core-market-api.service=core-market-api
+      - traefik.http.services.core-market-api.loadbalancer.server.port=3000
+      # core message api
+      - traefik.http.routers.core-message-api.entrypoints=web
+      - traefik.http.routers.core-message-api.rule=Host("core-message-api-local.tradeapi.io")
+      - traefik.http.routers.core-message-api.service=core-message-api
+      - traefik.http.services.core-message-api.loadbalancer.server.port=4000
+
+  api.mysql:
+    container_name: api.mysql
+    hostname: api.mysql
+    networks:
+      tradeapi-network:
+        aliases:
+          - api.mysql
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+    image: mysql:8.0
+    cap_add:
+      - SYS_NICE
+    command: --default-authentication-plugin=mysql_native_password --log_error_verbosity=3
+    restart: always
+    volumes:
+      - ./docker/mysql/conf:/etc/mysql
+      - ./docker/mysql/log:/var/log/mysql
+      - mysql-data:/var/lib/mysql
+    env_file:
+      - .env
+    environment:
+      MYSQL_USER: user
+      MYSQL_PASSWORD: fintech..2022
+      MYSQL_ROOT_PASSWORD: fintech..2022
+      MYSQL_DATABASE: database
+    expose:
+      - 3306
+    labels:
+      - traefik.enable=true
+      - traefik.tcp.routers.mysql.rule=HostSNI("*")
+      - traefik.tcp.routers.mysql.entrypoints=mysql
+
+  api.nginx:
+    container_name: api.nginx
+    hostname: api.nginx
+    networks:
+      tradeapi-network:
+        aliases:
+          - api.nginx
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+    image: nginx:1
+    depends_on:
+      - api.app
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - .:/var/www
+      - /etc/modules
+      - ./docker/nginx:/etc/nginx
+      - ./docker/logs/nginx:/var/log/nginx
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.web.loadBalancer.sticky.cookie=true
+      - traefik.http.services.web.loadBalancer.sticky.cookie.name=.tradeapi.io
+      - traefik.http.routers.tc-user-api.rule=Host("tc-user-api-local.tradeapi.io")
+      - traefik.http.routers.tc-user-api.entrypoints=web
+      - traefik.http.routers.tc-user-api.service=web
+      - traefik.http.routers.tc-transaction-api.rule=Host("tc-transaction-api-local.tradeapi.io")
+      - traefik.http.routers.tc-transaction-api.entrypoints=web
+      - traefik.http.routers.tc-transaction-api.service=web
+      - traefik.http.routers.tc-img-api.rule=Host("tc-img-api-local.tradeapi.io")
+      - traefik.http.routers.tc-img-api.entrypoints=web
+      - traefik.http.routers.tc-img-api.service=web
+      - traefik.http.routers.tc-product-api.rule=Host("tc-product-api-local.tradeapi.io")
+      - traefik.http.routers.tc-product-api.entrypoints=web
+      - traefik.http.routers.tc-product-api.service=web
+      - traefik.http.routers.tc-connection-api.rule=Host("tc-connection-api-local.tradeapi.io")
+      - traefik.http.routers.tc-connection-api.entrypoints=web
+      - traefik.http.routers.tc-connection-api.service=web
+      - traefik.http.routers.tc-billing-api.rule=Host("tc-billing-api-local.tradeapi.io")
+      - traefik.http.routers.tc-billing-api.entrypoints=web
+      - traefik.http.routers.tc-billing-api.service=web
+      - traefik.http.routers.bd-user-api.rule=Host("bd-user-api-local.tradeapi.io")
+      - traefik.http.routers.bd-user-api.entrypoints=web
+      - traefik.http.routers.bd-user-api.service=web
+      - traefik.http.routers.bd-billing-api.rule=Host("bd-billing-api-local.tradeapi.io")
+      - traefik.http.routers.bd-billing-api.entrypoints=web
+      - traefik.http.routers.bd-billing-api.service=web
+      - traefik.http.routers.bd-product-api.rule=Host("bd-product-api-local.tradeapi.io")
+      - traefik.http.routers.bd-product-api.entrypoints=web
+      - traefik.http.routers.bd-product-api.service=web
+      - traefik.http.routers.bd-transaction-api.rule=Host("bd-transaction-api-local.tradeapi.io")
+      - traefik.http.routers.bd-transaction-api.entrypoints=web
+      - traefik.http.routers.bd-transaction-api.service=web
+
+  api.redis:
+    container_name: api.redis
+    hostname: api.redis
+    networks:
+      tradeapi-network:
+        aliases:
+          - api.redis
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+    image: redis:6
+    restart: always
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 6379
+
+  api.timescaledb:
+    container_name: api.timescaledb
+    hostname: api.timescaledb
+    networks:
+      tradeapi-network:
+        aliases:
+          - api.timescaledb
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+    image: timescale/timescaledb-ha:pg14-latest
+    restart: always
+    volumes:
+      - timescaledb-data:/home/postgres/pgdata/data
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: database
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: fintech..2022
+    expose:
+      - 5432
+    labels:
+      - traefik.enable=true
+      - traefik.tcp.routers.timescaledb.rule=HostSNI("*")
+      - traefik.tcp.routers.timescaledb.entrypoints=timescaledb
+    command: ["postgres", "-c", "max_locks_per_transaction=128"]
+
+  # Real-time local/production traffic logs, metrics, synthetic and user monitoring
+  # Employee intends to stop this locally will hold accountable of
+  # reporting 0 working hour and termination without notice
+  api.traefik:
+    container_name: api.traefik
+    hostname: api.traefik
+    networks:
+      tradeapi-network:
+        aliases:
+          - api.traefik
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    image: traefik:v2.9.7
+    depends_on:
+      - api.mysql
+      - api.app
+      - api.nginx
+      - api.redis
+      - api.timescaledb
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3306:3306"
+      - "5432:5432"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/logs/traefik:/var/log/traefik
+    command:
+      - "--api.insecure=false"
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.mysql.address=:3306"
+      - "--entrypoints.timescaledb.address=:5432"
+      - "--log.level=INFO"
+      - "--log.filePath=/var/log/traefik/error.log"
+    labels:
+      - traefik.enable=true

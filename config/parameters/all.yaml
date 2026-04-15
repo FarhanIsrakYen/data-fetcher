@@ -1,0 +1,11 @@
+# pls sort alphabetically! use `.` dot only for the variable name, no `-` or `_` or camelCase, etc.
+parameters:
+  app.namespace: 'Data'
+  config.path: 'config/google/config.json'
+  google.auth.provider.x509.cert.url: 'https://www.googleapis.com/oauth2/v1/certs'
+  google.auth.uri: 'https://accounts.google.com/o/oauth2/auth'
+  google.token.uri: 'https://oauth2.googleapis.com/token'
+  google.type: 'service_account'
+  google.universe.domain: 'googleapis.com'
+  redis.address: 'api.redis:6379'
+  gin.server.port: 2000

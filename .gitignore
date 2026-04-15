@@ -1,0 +1,31 @@
+# https://github.com/github/gitignore/blob/main/Go.gitignore
+# binaries for programs and plugins
+*.exe
+*.exe~
+*.msi
+*.msi~
+*.dll
+*.so
+*.dylib
+
+# test binary, built with `go test -c`
+*.test
+
+# output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# dependency directories
+vendor/
+var/
+# go workspace file
+go.work
+
+# others
+data-fetcher-api
+output
+console-output
+cache.json
+public/data
+###> google config ###
+/config/google/*.json
+###< google config ###
